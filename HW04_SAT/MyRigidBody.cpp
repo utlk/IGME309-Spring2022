@@ -1,5 +1,10 @@
 #include "MyRigidBody.h"
 using namespace BTX;
+
+//Tyler Lynch
+// AO4 SAT
+// DSA2 Section 1
+
 //Allocation
 uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 {
@@ -287,4 +292,140 @@ void MyRigidBody::AddToRenderList(void)
 		else
 			m_pModelMngr->AddWireCubeToRenderList(glm::translate(GetCenterGlobal()) * glm::scale(m_v3ARBBSize), C_YELLOW);
 	}
+}
+
+uint MyRigidBody::SAT(MyRigidBody* const a_pOther) 
+{
+	float radiusA, radiusB;
+
+	matrix3 m4Rotation;
+	matrix3 m4ARotation;
+
+	matrix3 m4ObjA = matrix3(m_m4ToWorld);
+	matrix3 m4ObjB = matrix3(a_pOther->GetModelMatrix());
+
+	vector3 v3VectorsA[] = { m4ObjA * AXIS_X, m4ObjA * AXIS_Y, m4ObjA * AXIS_Z };
+	vector3 v3VectorsB[] = { m4ObjB * AXIS_X, m4ObjB * AXIS_Y, m4ObjB * AXIS_Z };
+
+	vector3 v3CenterA = GetCenterGlobal();
+	vector3 v3CenterB = a_pOther->GetCenterGlobal();
+
+	vector3 v3HalfWidth = a_pOther->GetHalfWidth();
+
+	//Calculate roatation matrix and translation vector
+	for (int i = 0; i < 3; i++) 
+	{
+		for (int idx = 0; idx < 3; idx++) 
+		{
+			m4Rotation[i][idx] = glm::dot(v3VectorsA[i], v3VectorsB[idx]);
+		}
+	}
+
+	
+	vector3 v3Translation = v3CenterB - v3CenterA;
+	v3Translation = vector3(glm::dot(v3Translation, v3VectorsA[0]), glm::dot(v3Translation , v3VectorsA[1]), glm::dot(v3Translation, v3VectorsA[2]));
+
+
+	for (int i = 0; i < 3; i++)
+	{
+		for (int idx = 0; idx < 3; idx++)
+		{
+			m4ARotation[i][idx] = abs(m4Rotation[i][idx]) + 0.001; 
+		}
+	}
+
+
+	//Chbeck Axis
+	for (int i = 0; i < 3; i++) {
+		radiusA = m_v3HalfWidth[i];
+		radiusB = v3HalfWidth[0] * m4ARotation[i][0] + v3HalfWidth[1] * m4ARotation[i][1] + v3HalfWidth[2] * m4ARotation[i][2];
+		
+		if (abs(v3Translation[i]) > radiusA + radiusB) 
+		{ 
+			return BTXs::eSATResults::SAT_BX + i;
+		}
+	}
+
+	//Cross Products
+	radiusA = m_v3HalfWidth[1] * m4ARotation[2][0] + m_v3HalfWidth[2] * m4ARotation[1][0];
+	radiusB = v3HalfWidth[1] * m4ARotation[0][2] + v3HalfWidth[2] * m4ARotation[0][1];
+	
+	if (abs(v3Translation[2] * m4Rotation[1][0] - v3Translation[1] * m4Rotation[2][0]) > radiusA + radiusB)
+	{
+		return BTXs::eSATResults::SAT_AXxBX;
+	}
+
+
+	radiusA = m_v3HalfWidth[1] * m4ARotation[2][1] + m_v3HalfWidth[2] * m4ARotation[1][1];
+	radiusB = v3HalfWidth[0] * m4ARotation[0][2] + v3HalfWidth[2] * m4ARotation[0][0];
+	
+	if (abs(v3Translation[2] * m4Rotation[1][1] - v3Translation[1] * m4Rotation[2][1]) > radiusA + radiusB) 
+	{ 
+		return BTXs::eSATResults::SAT_AXxBY;
+	}
+
+
+	radiusA = m_v3HalfWidth[1] * m4ARotation[2][2] + m_v3HalfWidth[2] * m4ARotation[1][2];
+	radiusB = v3HalfWidth[0] * m4ARotation[0][1] + v3HalfWidth[1] * m4ARotation[0][0];
+	
+	if (abs(v3Translation[2] * m4Rotation[1][2] - v3Translation[1] * m4Rotation[2][2]) > radiusA + radiusB)
+	{
+		return BTXs::eSATResults::SAT_AXxBZ;
+	}
+
+
+	radiusA = m_v3HalfWidth[0] * m4ARotation[2][0] + m_v3HalfWidth[2] * m4ARotation[0][0];
+	radiusB = v3HalfWidth[1] * m4ARotation[1][2] + v3HalfWidth[2] * m4ARotation[1][1];
+	
+	if (abs(v3Translation[0] * m4Rotation[2][0] - v3Translation[2] * m4Rotation[0][0]) > radiusA + radiusB) 
+	{ 
+		return BTXs::eSATResults::SAT_AYxBX;
+	}
+
+
+	radiusA = m_v3HalfWidth[0] * m4ARotation[2][1] + m_v3HalfWidth[2] * m4ARotation[0][1];
+	radiusB = v3HalfWidth[0] * m4ARotation[1][2] + v3HalfWidth[2] * m4ARotation[1][0];
+	
+	if (abs(v3Translation[0] * m4Rotation[2][1] - v3Translation[2] * m4Rotation[0][1]) > radiusA + radiusB) 
+	{ 
+		return BTXs::eSATResults::SAT_AYxBY; 
+	}
+
+
+	radiusA = m_v3HalfWidth[0] * m4ARotation[2][2] + m_v3HalfWidth[2] * m4ARotation[0][2];
+	radiusB = v3HalfWidth[0] * m4ARotation[1][1] + v3HalfWidth[1] * m4ARotation[1][0];
+	
+	if (abs(v3Translation[0] * m4Rotation[2][2] - v3Translation[2] * m4Rotation[0][2]) > radiusA + radiusB)
+	{
+		return BTXs::eSATResults::SAT_AYxBZ;
+	}
+
+
+	radiusA = m_v3HalfWidth[0] * m4ARotation[1][0] + m_v3HalfWidth[1] * m4ARotation[0][0];
+	radiusB = v3HalfWidth[1] * m4ARotation[2][2] + v3HalfWidth[2] * m4ARotation[2][1];
+	
+	if (abs(v3Translation[1] * m4Rotation[0][0] - v3Translation[0] * m4Rotation[1][0]) > radiusA + radiusB)
+	{
+		return BTXs::eSATResults::SAT_AZxBX;
+
+	}
+
+
+	radiusA = m_v3HalfWidth[0] * m4ARotation[1][1] + m_v3HalfWidth[1] * m4ARotation[0][1];
+	radiusB = v3HalfWidth[0] * m4ARotation[2][2] + v3HalfWidth[2] * m4ARotation[2][0];
+	
+	if (abs(v3Translation[1] * m4Rotation[0][1] - v3Translation[0] * m4Rotation[1][1]) > radiusA + radiusB) 
+	{ 
+		return BTXs::eSATResults::SAT_AZxBY; 
+	}
+
+	radiusA = m_v3HalfWidth[0] * m4ARotation[1][2] + m_v3HalfWidth[1] * m4ARotation[0][2];
+	radiusB = v3HalfWidth[0] * m4ARotation[2][1] + v3HalfWidth[1] * m4ARotation[2][0];
+	if (abs(v3Translation[1] * m4Rotation[0][2] - v3Translation[0] * m4Rotation[1][2]) > radiusA + radiusB) 
+	{ 
+		return BTXs::eSATResults::SAT_AZxBZ; 
+	}
+
+
+	return BTXs::eSATResults::SAT_NONE;
 }
